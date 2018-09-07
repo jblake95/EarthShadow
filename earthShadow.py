@@ -4,11 +4,16 @@ Script for locating the Earth's shadow for a given epoch
 
 import argparse as ap
 import numpy as np
-from datetime import datetime
-import ephem
+#from datetime import datetime
 from skyfield.api import load
 from astropy import units as u
-from astropy.coordinates import SkyCoord, Longitude, Latitude
+from astropy.time import Time
+from astropy.coordinates import (
+    Latitude,
+    Longitude,
+    solar_system_ephemeris, 
+    get_body
+    )
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 
@@ -21,7 +26,7 @@ SITE_ELEVATION = 2387
 
 R_SUN = 695508000.
 R_EARTH = 6371000.
-R_GEO = 36000000.
+R_GEO = 36000000. + R_EARTH
 CONE_ANGLE = 0.018867
 
 def argParse():
@@ -31,38 +36,63 @@ def argParse():
     
     parser = ap.ArgumentParser()
     
-    parser.add_argument('epoch',
-                        help='format "yyyy/MM/dd hh:mm:ss" or "now"',
+    parser.add_argument('utc',
+                        help='format "yyyy-MM-ddThh:mm:ss" or "now"',
                         type=str)
     
-    parser.add_argument('ra',
-                        help='Right ascension of target [deg]',
+    parser.add_argument('ra_h',
+                        help='Right ascension of target [hr]',
                         type=float)
     
-    parser.add_argument('dec',
+    parser.add_argument('ra_m',
+                        help='Right ascension of target [min]',
+                        type=float)
+    
+    parser.add_argument('ra_s',
+                        help='Right ascension of target [sec]',
+                        type=float)
+    
+    parser.add_argument('dec_d',
+                        help='Right ascension of target [deg]',
+                        type=float)
+                        
+    parser.add_argument('dec_m',
                         help='Declination og target [deg]',
+                        type=float)
+    
+    parser.add_argument('dec_s',
+                        help='Right ascension of target [hr]',
                         type=float)
     
     return parser.parse_args()
 
+def parseInput(args):
+	"""
+	Read input epoch as an astropy Time object and input angles as 
+	astropy Angle objects
+	"""
+	
+	epoch = Time(args.epoch, format='isot', scale='utc')
+	
+	ra = Longitude((args.ra_h, args.ra_m, args.ra_s), u.hourangle)
+	dec = Latitude((args.dec_d, args,dec_m, args.dec_s), u.deg))
+	
+	return epoch, ra, dec
+
 def getSunPosition(epoch):
     """
-    Compute position of Sun relative to observer
+    Compute position of Sun relative to observer [epoch in utc]
     """
     
-    obs = ephem.Observer()
+    loc = EarthLocation(lat=SITE_LATITUDE*u.deg,
+                        lon=SITE_LONGITUDE*u.deg,
+                        height = SITE_ELEVATION*u.m)
     
-    obs.lat = SITE_LATITUDE
-    obs.lon = SITE_LONGITUDE
-    obs.elevation = SITE_ELEVATION
-    obs.pressure = 0
+    sun_ephem = get_body('sun', epoch, loc)
     
-    obs.date = epoch
+    print('Sun is at ', (sun_ephem.ra, sun_ephem.dec))
     
-    sun = ephem.Sun(obs)
-    print('Sun is at ', SkyCoord(ra=sun.ra*u.rad, dec=sun.dec*u.rad, unit=u.deg))
-    
-    return SkyCoord(ra=sun.ra*u.rad, dec=sun.dec*u.rad, unit=u.deg)
+    return sun_ephem
 
 def getAntiSolarPoint(coord):
     """
@@ -103,7 +133,7 @@ def shadowRadius(altitude):
     
     ang_radius = 2.*np.arctan(r_shadow / (2.*R_GEO))
     
-    return ang_radius * RAD_TO_DEG
+    return ang_radius * RAD_TO_DEG / 2
 
 def penumbraRadius(d_sun):
     """
@@ -125,8 +155,8 @@ def main(epoch, ra, dec, altitude=R_GEO):
     Plot the Earth's inner and penumbral shadows
     """
     
-    sun_coord = getSunPosition(epoch)
-    asp = getAntiSolarPoint(sun_coord)
+    sun_pos = getSunPosition(epoch)
+    asp = getAntiSolarPoint(sun_pos)
     
     d_s = earthSunDistance(epoch)
     r_s = shadowRadius(altitude)
