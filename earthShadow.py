@@ -4,11 +4,10 @@ Script for locating the Earth's shadow for a given epoch
 
 import argparse as ap
 import numpy as np
-#from datetime import datetime
-from skyfield.api import load
 from astropy import units as u
 from astropy.time import Time
 from astropy.coordinates import (
+    Angle,
     Latitude,
     Longitude,
     solar_system_ephemeris, 
@@ -26,7 +25,7 @@ SITE_ELEVATION = 2387
 
 R_SUN = 695508000.
 R_EARTH = 6371000.
-R_GEO = 36000000. + R_EARTH
+R_GEO = 36000000.
 CONE_ANGLE = 0.018867
 
 def argParse():
@@ -75,11 +74,11 @@ def parseInput(args):
 	epoch = Time(args.epoch, format='isot', scale='utc')
 	
 	ra = Longitude((args.ra_h, args.ra_m, args.ra_s), u.hourangle)
-	dec = Latitude((args.dec_d, args,dec_m, args.dec_s), u.deg))
+	dec = Latitude((args.dec_d, args,dec_m, args.dec_s), u.deg)
 	
 	return epoch, ra, dec
 
-def getSunPosition(epoch):
+def getSunEphemeris(epoch):
     """
     Compute position of Sun relative to observer [epoch in utc]
     """
@@ -94,44 +93,27 @@ def getSunPosition(epoch):
     
     return sun_ephem
 
-def getAntiSolarPoint(coord):
+def getAntiSolarPoint(ephemeris):
     """
     Compute antisolar point given solar coordinates
     """
     
-    ra_asp = Longitude(coord.ra - RA_CORRECTION, unit=u.deg)
-    dec_asp = Latitude(-coord.dec, unit=u.deg)
+    ra_asp = Longitude(ephemeris.ra - RA_CORRECTION, unit=u.hourangle)
+    dec_asp = Latitude(-ephemeris.dec, unit=u.deg)
     
     return SkyCoord(ra=ra_asp, dec=dec_asp)
-
-def earthSunDistance(epoch):
-    """
-    Compute the Earth-Sun distance at the desired epoch
-    """
-    
-    ts = load.timescale()
-    epoch = datetime.strptime(epoch, '%Y/%m/%d %H:%M:%S')
-    t = ts.tt(epoch.year,epoch.month,epoch.day,epoch.hour,epoch.minute,epoch.second)
-    
-    planets = load('de421.bsp')
-    
-    ephemeris = planets['earth'].at(t).observe(planets['sun'])
-    
-    _, _, distance = ephemeris.radec()
-    
-    return distance.m
 
 def shadowRadius(altitude):
     """
     Compute the radius of the inner shadow
     """
     
-    base_diam = 2.*R_EARTH
-    wing_diam = 2.*R_GEO*np.tan(0.5*CONE_ANGLE)
+    base_diam = 2. * R_EARTH
+    wing_diam = 2. * (R_GEO + R_EARTH) * np.tan(0.5 * CONE_ANGLE)
     
     r_shadow = (base_diam - wing_diam) / 2.
     
-    ang_radius = 2.*np.arctan(r_shadow / (2.*R_GEO))
+    ang_radius = 2. * np.arctan(r_shadow / (2. * (R_GEO - SITE_ELEVATION)))
     
     return ang_radius * RAD_TO_DEG / 2
 
@@ -146,29 +128,41 @@ def penumbraRadius(d_sun):
     
     r_penumbra = (R_EARTH + R_SUN) / d_sun * (d_sun - d_sun_x + R_EARTH + R_GEO)
     
-    ang_radius = 2.*np.arctan(r_penumbra / (2.*R_GEO))
+    ang_radius = 2. * np.arctan(r_penumbra / (2. * (R_GEO - SITE_ELEVATION)))
     
     return ang_radius * RAD_TO_DEG
+
+def sexagesimal(angle):
+	"""
+	Convert an angle in units of degrees to sexagesimal format
+	"""
+	
+	
+	
+	return sexagesimal_str
 
 def main(epoch, ra, dec, altitude=R_GEO):
     """
     Plot the Earth's inner and penumbral shadows
     """
     
-    sun_pos = getSunPosition(epoch)
-    asp = getAntiSolarPoint(sun_pos)
+    sun_ephem = getSunEphemeris(epoch)
+    asp = getAntiSolarPoint(sun_ephem)
     
-    d_s = earthSunDistance(epoch)
+    d_s = sun_ephem.distance
     r_s = shadowRadius(altitude)
     r_p = penumbraRadius(d_s)
     
     # plot the observer's target position
     fig, ax = plt.subplots()
-    plt.plot(sun_coord.ra.deg, sun_coord.dec.deg,'rx')
+    plt.plot(sun_ephem.ra.deg, sun_ephem.dec.deg,'rx')
     plt.plot(ra, dec, 'kx')
     
     plt.xlim(0, 360)
     plt.ylim(-90,90)
+    
+    # present right ascension axis in units of hour angle
+    
     
     c_i = Circle(xy=(asp.ra.deg,asp.dec.deg), radius=r_s, 
                facecolor="black", edgecolor='black', alpha=0.8)
