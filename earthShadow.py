@@ -23,8 +23,8 @@ CONE_ANGLE = 0.018867
 RAD_TO_DEG = 180. / np.pi
 RIGHT_ANGLE = np.pi / 2
 
-SITE_LATITUDE = 79.3#28.7603135
-SITE_LONGITUDE = 53.2#-17.8796168
+SITE_LATITUDE = 28.7603135
+SITE_LONGITUDE = -17.8796168
 SITE_ELEVATION = 2387
 
 SITE_LOCATION = EarthLocation(lat=SITE_LATITUDE*u.deg,
@@ -124,18 +124,13 @@ def penumbraRadius(d_sun):
     """
     Compute the radius of the outer (penumbral) shadow
     """
-    print(d_sun)
     
     theta = np.arctan((R_EARTH + R_SUN) / d_sun)
     d_sun_x = R_SUN * np.tan(RIGHT_ANGLE - theta)
     
     r_penumbra = (R_EARTH + R_SUN) / d_sun * (d_sun - d_sun_x + R_EARTH + R_GEO)
     
-    print(r_penumbra)
-    
     ang_radius = 2. * np.arctan(r_penumbra / (2. * (R_GEO))) #- SITE_ELEVATION)))
-    
-    print(ang_radius)
     
     return ang_radius * RAD_TO_DEG
 
@@ -160,7 +155,6 @@ def main(args, altitude=R_GEO):
     asp = getAntiSolarPoint(sun_ephem)
     
     d_s = sun_ephem.distance.m
-    print(d_s)
     r_u = umbraRadius(altitude)
     r_p = penumbraRadius(d_s) 
     
@@ -168,19 +162,18 @@ def main(args, altitude=R_GEO):
     fig, ax = plt.subplots()
     
     plt.plot(sun_ephem.ra.deg, sun_ephem.dec.deg,'rx')
-    plt.plot(target_ra, target_dec, 'gx')
-    """
+    plt.plot(target_ra.deg, target_dec.deg, 'gx')
+    
     # present right ascension axis in units of hour angle
     fig.canvas.draw()
     
     new_xlabels = []
     old_xlabels = [item.get_text() for item in ax.get_xticklabels()]
     for l, label in enumerate(old_xlabels):
-        print(l, label)
         new_xlabels.append(sexagesimal(old_xlabels[l]))
     
     ax.set_xticklabels(new_xlabels) 
-    """
+    
     # add circles to represent umbral and penumbral shadows
     c_u = Circle(xy=(asp.ra.deg,asp.dec.deg), radius=r_u, 
                facecolor="black", edgecolor='black', alpha=0.8)
