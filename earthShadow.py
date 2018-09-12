@@ -134,15 +134,16 @@ def penumbraRadius(d_sun):
     
     return ang_radius * RAD_TO_DEG
 
-def sexagesimal(angle_str):
+def hourAngle(angle_str):
     """
-    Convert an angle string in degrees to a sexagesimal longitude
+    Convert an angle in degrees to an hourangle
     """
     
     angle = Angle(angle_str, u.deg)
-    sexagesimal_str = angle.to_string(u.hourangle)
+    #sexagesimal_str = angle.to_string(u.hourangle)
+    sexagesimal = angle.hourangle
     
-    return sexagesimal_str
+    return sexagesimal
 
 def main(args, altitude=R_GEO):
     """
@@ -163,16 +164,6 @@ def main(args, altitude=R_GEO):
     
     plt.plot(sun_ephem.ra.deg, sun_ephem.dec.deg,'rx')
     plt.plot(target_ra.deg, target_dec.deg, 'gx')
-    
-    # present right ascension axis in units of hour angle
-    fig.canvas.draw()
-    
-    new_xlabels = []
-    old_xlabels = [item.get_text() for item in ax.get_xticklabels()]
-    for l, label in enumerate(old_xlabels):
-        new_xlabels.append(sexagesimal(old_xlabels[l]))
-    
-    ax.set_xticklabels(new_xlabels) 
     
     # add circles to represent umbral and penumbral shadows
     c_u = Circle(xy=(asp.ra.deg,asp.dec.deg), radius=r_u, 
